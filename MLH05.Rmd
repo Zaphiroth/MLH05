@@ -23,6 +23,8 @@ options(java.parameters = "-Xmx2048m",
 suppressPackageStartupMessages({
   # ISLR2
   library(ISLR2)
+  # Splines
+  library(splines)
   # DM
   library(zip)
   library(openxlsx)
@@ -35,6 +37,7 @@ suppressPackageStartupMessages({
   library(RODBC)
   library(MASS)
   library(car)
+  library(caret)
   library(data.table)
   library(lubridate)
   library(plotly)
@@ -149,28 +152,52 @@ boston.poly.list.res2 <- boston.poly.list.res %>%
   select(starts_with('nox_')) %>% 
   summarise_all(function(x) {sum(x^2)}) %>% 
   as.data.table() %>% 
-  melt(variable.name = 'poly', value.name = 'r2')
+  melt(variable.name = 'poly', value.name = 'rss')
 boston.poly.list.res2
 ```
 
+### Cross-validation
 
+Split data set to 10-fold. 
 
+```{r}
+set.seed(0803)
+folds.index <- createFolds(1:nrow(boston.subset), k = 10)
+```
 
+CV. 
 
+```{r}
+rss.degrees <- c()
+for (i in 1:10) {
+  rss.folds <- c()
+  
+  for (j in 1:10) {
+    boston.train <- boston.subset %>% 
+      filter(!(row_number() %in% folds.index[[j]]))
+    
+    boston.valid <- boston.subset %>% 
+      filter(row_number() %in% folds.index[[j]])
+    
+    boston.poly.cv <- lm(nox ~ poly(dis, degree = i), data = boston.train)
+    
+    rss <- sum((boston.valid$nox - predict(boston.poly.cv, newdata = boston.valid['dis'])) ^ 2)
+    rss.folds <- append(rss.folds, rss)
+  }
+  
+  rss.degrees <- append(rss.degrees, sum(rss.folds))
+}
 
+rss.degrees
+```
 
+When degree = 3, the polynomial regression has the minimal RSS, so the optimal degree is 3. 
 
+### Regression spline
 
-
-
-
-
-
-
-
-
-
-
+```{r}
+boston.sp <- lm(nox ~ bs(dis, df = 4, knots = 2, degree = 3), data = boston.subset)
+```
 
 
 
