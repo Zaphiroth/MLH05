@@ -1,0 +1,183 @@
+---
+title: "MLH05"
+author: "Liu Zhe"
+date: "2022-11-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = TRUE,
+	warning = FALSE
+)
+```
+
+# Environment Variables and Packages
+
+```{r}
+options(java.parameters = "-Xmx2048m",
+        stringsAsFactors = FALSE, 
+        encoding = 'UTF-8')
+
+suppressPackageStartupMessages({
+  # ISLR2
+  library(ISLR2)
+  # DM
+  library(zip)
+  library(openxlsx)
+  library(readxl)
+  library(writexl)
+  library(RcppRoll)
+  library(plyr)
+  library(stringi)
+  library(feather)
+  library(RODBC)
+  library(MASS)
+  library(car)
+  library(data.table)
+  library(lubridate)
+  library(plotly)
+  library(pROC)
+  library(tidymodels)
+  library(tidyverse)
+})
+```
+
+# Boston
+
+Select particular variables of Boston data. 
+
+```{r}
+boston.subset <- Boston %>% 
+  select(dis, nox) %>% 
+  arrange(dis)
+
+head(boston.subset)
+```
+
+### Cubic polynomial regression. 
+
+Fit. 
+
+```{r}
+boston.poly <- lm(nox ~ poly(dis, degree = 3), data = boston.subset)
+summary(boston.poly)
+```
+
+Fitted values. 
+
+```{r}
+boston.poly.pred <- boston.subset %>% 
+  mutate(nox_pred = boston.poly$fitted.values)
+```
+
+Fit plot. 
+
+```{r}
+boston.poly.plot <- plot_ly(data = boston.poly.pred, x = ~dis) %>% 
+  add_trace(y = ~nox, name = 'True', type = 'scatter', mode = 'markers') %>% 
+  add_trace(y = ~nox_pred, name = 'Fit', type = 'scatter', mode = 'lines') %>% 
+  layout(
+    title = 'Polynomial Fits'
+  )
+boston.poly.plot
+```
+
+### Polynomial fits of different degrees
+
+Fit. 
+
+```{r}
+boston.poly.list <- list()
+for (i in 1:10) {
+  boston.poly.list[[i]] <- lm(nox ~ poly(dis, degree = i), data = boston.subset)
+}
+```
+
+Fitted values. 
+
+```{r}
+boston.poly.list.pred <- boston.subset
+for (i in 1:10) {
+  boston.poly.list.pred[paste0('nox_pred', str_pad(i, 2, side = 'left', pad = 0))] <- boston.poly.list[[i]]$fitted.values
+}
+```
+
+Fit plot. 
+
+```{r}
+pred.name <- paste0('nox_pred', str_pad(1:10, 2, side = 'left', pad = 0))
+
+boston.poly.list.plot <- plot_ly(data = boston.poly.list.pred, x = ~dis) %>% 
+  add_trace(y = ~nox, name = 'nox', type = 'scatter', mode = 'markers') %>% 
+    add_trace(y = ~get(pred.name[1]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[2]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[3]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[4]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[5]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[6]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[7]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[8]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[9]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[10]), name = pred.name[i], 
+              type = 'scatter', mode = 'lines') %>% 
+  layout(
+    title = 'Polynomial Fits of Different Degrees'
+  )
+boston.poly.list.plot
+```
+
+Residual sum of squares. 
+
+```{r}
+boston.poly.list.res <- boston.subset
+for (i in 1:10) {
+  boston.poly.list.res[paste0('nox_res', str_pad(i, 2, side = 'left', pad = 0))] <- boston.poly.list[[i]]$residuals
+}
+
+boston.poly.list.res2 <- boston.poly.list.res %>% 
+  select(starts_with('nox_')) %>% 
+  summarise_all(function(x) {sum(x^2)}) %>% 
+  as.data.table() %>% 
+  melt(variable.name = 'poly', value.name = 'r2')
+boston.poly.list.res2
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
