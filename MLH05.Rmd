@@ -68,16 +68,12 @@ boston.poly <- lm(nox ~ poly(dis, degree = 3), data = boston.subset)
 summary(boston.poly)
 ```
 
-Fitted values. 
+Plot. 
 
 ```{r}
 boston.poly.pred <- boston.subset %>% 
   mutate(nox_pred = boston.poly$fitted.values)
-```
 
-Fit plot. 
-
-```{r}
 boston.poly.plot <- plot_ly(data = boston.poly.pred, x = ~dis) %>% 
   add_trace(y = ~nox, name = 'True', type = 'scatter', mode = 'markers') %>% 
   add_trace(y = ~nox_pred, name = 'Fit', type = 'scatter', mode = 'lines') %>% 
@@ -98,41 +94,37 @@ for (i in 1:10) {
 }
 ```
 
-Fitted values. 
-
-```{r}
-boston.poly.list.pred <- boston.subset
-for (i in 1:10) {
-  boston.poly.list.pred[paste0('nox_pred', str_pad(i, 2, side = 'left', pad = 0))] <- boston.poly.list[[i]]$fitted.values
-}
-```
-
-Fit plot. 
+Plot. 
 
 ```{r}
 pred.name <- paste0('nox_pred', str_pad(1:10, 2, side = 'left', pad = 0))
 
+boston.poly.list.pred <- boston.subset
+for (i in 1:10) {
+  boston.poly.list.pred[pred.name[i]] <- boston.poly.list[[i]]$fitted.values
+}
+
 boston.poly.list.plot <- plot_ly(data = boston.poly.list.pred, x = ~dis) %>% 
   add_trace(y = ~nox, name = 'nox', type = 'scatter', mode = 'markers') %>% 
-    add_trace(y = ~get(pred.name[1]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[1]), name = pred.name[1], 
               type = 'scatter', mode = 'lines') %>% 
-    add_trace(y = ~get(pred.name[2]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[2]), name = pred.name[2], 
               type = 'scatter', mode = 'lines') %>% 
-    add_trace(y = ~get(pred.name[3]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[3]), name = pred.name[3], 
               type = 'scatter', mode = 'lines') %>% 
-    add_trace(y = ~get(pred.name[4]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[4]), name = pred.name[4], 
               type = 'scatter', mode = 'lines') %>% 
-    add_trace(y = ~get(pred.name[5]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[5]), name = pred.name[5], 
               type = 'scatter', mode = 'lines') %>% 
-    add_trace(y = ~get(pred.name[6]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[6]), name = pred.name[6], 
               type = 'scatter', mode = 'lines') %>% 
-    add_trace(y = ~get(pred.name[7]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[7]), name = pred.name[7], 
               type = 'scatter', mode = 'lines') %>% 
-    add_trace(y = ~get(pred.name[8]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[8]), name = pred.name[8], 
               type = 'scatter', mode = 'lines') %>% 
-    add_trace(y = ~get(pred.name[9]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[9]), name = pred.name[9], 
               type = 'scatter', mode = 'lines') %>% 
-    add_trace(y = ~get(pred.name[10]), name = pred.name[i], 
+    add_trace(y = ~get(pred.name[10]), name = pred.name[10], 
               type = 'scatter', mode = 'lines') %>% 
   layout(
     title = 'Polynomial Fits of Different Degrees'
@@ -148,15 +140,15 @@ for (i in 1:10) {
   boston.poly.list.res[paste0('nox_res', str_pad(i, 2, side = 'left', pad = 0))] <- boston.poly.list[[i]]$residuals
 }
 
-boston.poly.list.res2 <- boston.poly.list.res %>% 
+boston.poly.list.rss <- boston.poly.list.res %>% 
   select(starts_with('nox_')) %>% 
   summarise_all(function(x) {sum(x^2)}) %>% 
   as.data.table() %>% 
   melt(variable.name = 'poly', value.name = 'rss')
-boston.poly.list.res2
+boston.poly.list.rss
 ```
 
-### Cross-validation
+### Cross-validation of polynomial
 
 Split data set to 10-fold. 
 
@@ -168,43 +160,162 @@ folds.index <- createFolds(1:nrow(boston.subset), k = 10)
 CV. 
 
 ```{r}
-rss.degrees <- c()
+boston.poly.rss.degrees <- c()
 for (i in 1:10) {
   rss.folds <- c()
   
   for (j in 1:10) {
-    boston.train <- boston.subset %>% 
+    cv.train <- boston.subset %>% 
       filter(!(row_number() %in% folds.index[[j]]))
     
-    boston.valid <- boston.subset %>% 
+    cv.valid <- boston.subset %>% 
       filter(row_number() %in% folds.index[[j]])
     
-    boston.poly.cv <- lm(nox ~ poly(dis, degree = i), data = boston.train)
+    poly.cv <- lm(nox ~ poly(dis, degree = i), data = cv.train)
     
-    rss <- sum((boston.valid$nox - predict(boston.poly.cv, newdata = boston.valid['dis'])) ^ 2)
+    rss <- sum((cv.valid$nox - predict(poly.cv, newdata = cv.valid['dis'])) ^ 2)
     rss.folds <- append(rss.folds, rss)
   }
   
-  rss.degrees <- append(rss.degrees, sum(rss.folds))
+  boston.poly.rss.degrees <- append(boston.poly.rss.degrees, sum(rss.folds))
 }
 
-rss.degrees
+boston.poly.cv.rss <- data.frame(poly = pred.name, 
+                                 rss = boston.poly.rss.degrees)
+boston.poly.cv.rss
 ```
 
-When degree = 3, the polynomial regression has the minimal RSS, so the optimal degree is 3. 
+When degree = 3, the polynomial regression has the minimal CV RSS, so the optimal degree is 3. 
 
 ### Regression spline
 
+Regression spline with 4 degrees of freedom. 
+
 ```{r}
-boston.sp <- lm(nox ~ bs(dis, df = 4, knots = 2, degree = 3), data = boston.subset)
+(boston.sp.knots <- attr(ns(boston.subset$dis, df = 4), 'knots'))
+boston.sp <- lm(nox ~ bs(dis, df = 4, knots = boston.sp.knots, degree = 3), data = boston.subset)
+summary(boston.sp)
 ```
 
+Plot. 
 
+```{r}
+boston.sp.pred <- boston.subset %>% 
+  mutate(nox_pred = boston.sp$fitted.values)
 
+boston.sp.plot <- plot_ly(data = boston.sp.pred, x = ~dis) %>% 
+  add_trace(y = ~nox, name = 'True', type = 'scatter', mode = 'markers') %>% 
+  add_trace(y = ~nox_pred, name = 'Fit', type = 'scatter', mode = 'lines') %>% 
+  layout(
+    title = 'Spline Fits'
+  )
+boston.sp.plot
+```
 
+### Regression spline of different degress of freedom
 
+Fit. 
 
+```{r}
+boston.sp.knots.list <- list()
+boston.sp.list <- list()
+for (i in 1:10) {
+  boston.sp.knots.list[[i]] <- attr(ns(boston.subset$dis, df = i), 'knots')
+  boston.sp.list[[i]] <- lm(nox ~ bs(dis, df = i, knots = boston.sp.knots.list[[i]], degree = 3), data = boston.subset)
+}
+```
 
+Plot. 
 
+```{r}
+pred.name <- paste0('nox_pred', str_pad(1:10, 2, side = 'left', pad = 0))
 
+boston.sp.list.pred <- boston.subset
+for (i in 1:10) {
+  boston.sp.list.pred[pred.name[i]] <- boston.sp.list[[i]]$fitted.values
+}
+
+boston.sp.list.plot <- plot_ly(data = boston.sp.list.pred, x = ~dis) %>% 
+  add_trace(y = ~nox, name = 'nox', type = 'scatter', mode = 'markers') %>% 
+    add_trace(y = ~get(pred.name[1]), name = pred.name[1], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[2]), name = pred.name[2], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[3]), name = pred.name[3], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[4]), name = pred.name[4], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[5]), name = pred.name[5], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[6]), name = pred.name[6], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[7]), name = pred.name[7], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[8]), name = pred.name[8], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[9]), name = pred.name[9], 
+              type = 'scatter', mode = 'lines') %>% 
+    add_trace(y = ~get(pred.name[10]), name = pred.name[10], 
+              type = 'scatter', mode = 'lines') %>% 
+  layout(
+    title = 'Spline Fits of Different Degrees of Freedom'
+  )
+boston.sp.list.plot
+```
+
+Residual sum of squares. 
+
+```{r}
+boston.sp.list.res <- boston.subset
+for (i in 1:10) {
+  boston.sp.list.res[paste0('nox_res', str_pad(i, 2, side = 'left', pad = 0))] <- boston.sp.list[[i]]$residuals
+}
+
+boston.sp.list.rss <- boston.sp.list.res %>% 
+  select(starts_with('nox_')) %>% 
+  summarise_all(function(x) {sum(x^2)}) %>% 
+  as.data.table() %>% 
+  melt(variable.name = 'sp', value.name = 'rss')
+boston.sp.list.rss
+```
+
+### Cross-validation of spline
+
+Split data set to 10-fold. 
+
+```{r}
+set.seed(0803)
+folds.index <- createFolds(1:nrow(boston.subset), k = 10)
+```
+
+CV. 
+
+```{r}
+boston.sp.rss.degrees <- c()
+for (i in 1:10) {
+  rss.folds <- c()
+  
+  for (j in 1:10) {
+    cv.train <- boston.subset %>% 
+      filter(!(row_number() %in% folds.index[[j]]))
+    
+    cv.valid <- boston.subset %>% 
+      filter(row_number() %in% folds.index[[j]])
+    
+    knots <- attr(ns(cv.train$dis, df = i), 'knots')
+    sp.cv <- lm(nox ~ bs(dis, df = i, knots = knots, degree = 3), data = cv.train)
+    
+    rss <- sum((cv.valid$nox - predict(sp.cv, newdata = cv.valid['dis'])) ^ 2)
+    rss.folds <- append(rss.folds, rss)
+  }
+  
+  boston.sp.rss.degrees <- append(boston.sp.rss.degrees, sum(rss.folds))
+}
+
+boston.sp.cv.rss <- data.frame(spline = pred.name, 
+                               rss = boston.sp.rss.degrees)
+boston.sp.cv.rss
+```
+
+When degree of freedom is 8, the regression spline has the minimal CV RSS, so the optimal degree of freedom is 8. 
 
